@@ -1,0 +1,96 @@
+version: 2.1
+orbs:
+  gcp-gcr: circleci/gcp-gcr@0.13.0
+  node: circleci/node@1.11.0
+  helm: circleci/helm@1.2.0
+jobs:
+  test-and-coverage-backend:
+    working_directory: ~/tracks/backend
+    executor:
+      name: 'node/default'
+    resource_class: small
+    steps:
+      - checkout:
+          path: ~/tracks
+      - node/with-cache:
+          steps:
+            - run: yarn
+            - run: yarn run test
+            - run: yarn run test:cov
+  test-frontend:
+    working_directory: ~/tracks/frontend
+    executor:
+      name: 'node/default'
+    resource_class: small
+    steps:
+      - checkout:
+          path: ~/tracks
+      - node/with-cache:
+          steps:
+            - run: yarn
+            - run: yarn run test
+
+  lint-backend:
+    working_directory: ~/tracks/backend
+    executor:
+      name: 'node/default'
+    resource_class: small
+    steps:
+      - checkout:
+          path: ~/tracks
+      - node/with-cache:
+          steps:
+            - run: yarn
+            - run: yarn run lint
+  deploy:
+    docker:
+      - image: google/cloud-sdk
+    resource_class: small
+    steps:
+      - checkout
+      - run:
+          name: Setup Google Cloud SDK
+          command: |
+            echo $GCLOUD_SERVICE_KEY > ${HOME}/gcloud-service-key.json
+
+            # Initialize gcloud CLI
+            gcloud auth activate-service-account --key-file=${HOME}/gcloud-service-key.json
+            gcloud --quiet config set project $GOOGLE_PROJECT_ID
+            gcloud --quiet config set compute/zone $GOOGLE_COMPUTE_ZONE
+            gcloud --quiet container clusters get-credentials $GOOGLE_CLUSTER_NAME
+            gcloud --quiet --verbosity=none compute disks create tracks-${CIRCLE_BRANCH}-pg-data-disk --size 5GB --zone europe-west1-b || echo "disk creation fail"
+      - setup_remote_docker
+      - helm/install-helm-client:
+          version: v3.2.0-rc.1
+      - run:
+          name: Helm Release
+          command: |
+            helm upgrade ${CIRCLE_BRANCH} ~/project/helm/ --namespace=${CIRCLE_BRANCH} || helm install ${CIRCLE_BRANCH} ~/project/helm/ --namespace=${CIRCLE_BRANCH} --create-namespace
+
+workflows:
+  deploy:
+    jobs:
+      - test-and-coverage-backend
+      - lint-backend
+      - test-frontend
+      - gcp-gcr/build-and-push-image:
+          name: build-and-push-backend
+          dockerfile: backend/Dockerfile
+          image: backend
+          tag: ${CIRCLE_BRANCH}
+          path: ~/project/backend
+          requires:
+            - test-and-coverage-backend
+            - lint-backend
+      - gcp-gcr/build-and-push-image:
+          name: build-and-push-frontend
+          dockerfile: frontend/Dockerfile
+          image: frontend
+          tag: ${CIRCLE_BRANCH}
+          path: ~/project/frontend
+          requires:
+            - test-frontend
+      - deploy:
+          requires:
+            - build-and-push-backend
+            - build-and-push-frontend
