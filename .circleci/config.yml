@@ -65,7 +65,7 @@ workflows:
           tag: ${CIRCLE_BRANCH}
           path: ~/project
           requires:
-            - test-and-coverage-backend
+            # - test-and-coverage-backend
             - lint-backend
       - deploy:
           requires:
