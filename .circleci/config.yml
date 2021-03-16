@@ -56,7 +56,7 @@ jobs:
 workflows:
   deploy:
     jobs:
-      - test-and-coverage-backend
+      # - test-and-coverage-backend
       - lint-backend
       - gcp-gcr/build-and-push-image:
           name: build-and-push-backend

@@ -15,7 +15,7 @@ export class AuthService {
     const user = await this.userService.findOne({ email });
 
     if (user && (await compare(pass, user.password))) {
-      const { password, ...rest } = user;
+      const { ...rest } = user;
       return rest;
     }
 
@@ -23,7 +23,7 @@ export class AuthService {
   }
 
   login(user: User) {
-    const { id, ...rest } = user;
+    const { id } = user;
     const payload = { sub: id };
 
     return {

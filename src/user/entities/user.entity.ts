@@ -46,6 +46,7 @@ export class User {
   }
 
   @OneToOne(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _ => Post,
     post => post.author,
     { cascade: true },

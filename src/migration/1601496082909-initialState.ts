@@ -1,5 +1,6 @@
 import {MigrationInterface, QueryRunner} from "typeorm";
 
+// eslint-disable-next-line @typescript-eslint/class-name-casing
 export class initialState1601496082909 implements MigrationInterface {
     name = 'initialState1601496082909'
 
